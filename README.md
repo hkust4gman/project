@@ -5,3 +5,6 @@
 
 
 - fine tuning. I am going to fine tune using tokenized data. so you need to provide the tokenized embedding to me.
+
+# Attetion:
+Please save some statistic data about your **training**, **data cleaning** etc, like time cost, memory occupation etc.
