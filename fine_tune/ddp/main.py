@@ -10,7 +10,7 @@ from datasets import load_dataset
 
 
 
-class config:
+class Config:
     def __init__(self, device):
         self.device = device
         self.backend = self._get_backend(device)
@@ -20,14 +20,14 @@ class config:
         self.batch_size = 32
         self.epoch = 10 #TODO: change this
 
-    def _get_backend(device):
+    def _get_backend(self, device):
         backend = 'gloo' # default option
         if device == 'cpu':
             backend = 'gloo'
         elif device == 'cuda':
             backend = 'nccl'
         return backend
-    def _get_world_size(device):
+    def _get_world_size(self, device):
         world_size = 4  #default option
         if device == 'cuda':
             world_size = torch.cuda.device_count()
@@ -44,10 +44,10 @@ def cleanup():
 def main():
     # set this config first please
     device = 'cpu'
-    config = config(device)
+    config = Config(device)
 
     #set up
-    dist.init_process_group(backend=config.device, world_size=config.world_size)
+    dist.init_process_group(backend=config.backend, world_size=config.world_size)
     rank = dist.get_rank()
     world_size = config.world_size
 
@@ -80,25 +80,25 @@ def main():
 
     #TODO: change dataset here.
     dataset = load_dataset("imdb")
-    dataset = dataset['train']
+    train_dataset = dataset['train']
     val_dataset = dataset['test']
     def tokenize_function(examples):
         return tokenizer(examples['text'], padding='max_length', truncation=True)
 
-    dataset = dataset.map(tokenize_function, batched=True)
+    train_dataset = train_dataset.map(tokenize_function, batched=True)
     val_dataset = val_dataset.map(tokenize_function, batched=True)
 
-    sampler = DistributedSampler(dataset)
-    dataloader = DataLoader(dataset, batch_size=config.batch_size, sampler=sampler, shuffle=True) # more options can be used
+    sampler = DistributedSampler(train_dataset)
+    train_dataloader = DataLoader(train_dataset, batch_size=config.batch_size, sampler=sampler) # more options can be used
 
     val_dataloader = DataLoader(val_dataset, batch_size=config.batch_size)
 
 
     for epoch in range(config.epoch):
-        sampler.set_epoch(config.epoch)
+        sampler.set_epoch(epoch)
         model.train()
 
-        for batch in dataloader:
+        for batch in train_dataloader:
             inputs, labels = None, None
             if config.device == 'cuda':
                 inputs = {key: val.to(rank) for key, val in batch.items() if key != 'label'}
@@ -106,10 +106,6 @@ def main():
             else:
                 inputs = {key: val for key, val in batch.items() if key != 'label'}
                 labels = batch['label']
-
-                
-
-
 
             outputs = model(**inputs, labels=labels)
             loss = outputs.loss
@@ -125,13 +121,19 @@ def main():
             raw_model = model.module
             val_loss = 0
             with torch.no_grad():
-                for input, labels in val_dataloader:
-                    inputs = {key: val.squeeze().to(rank) for key, val in inputs.items()}
-                    labels = labels.to(rank)
+                for batch in val_dataloader:
+                    inputs, labels = None, None
+                    if config.device == 'cuda':
+                        inputs = {key: val.to(rank) for key, val in batch.items() if key != 'label'}
+                        labels = batch['label'].to(rank)
+                    else:
+                        inputs = {key: val for key, val in batch.items() if key != 'label'}
+                        labels = batch['label']
                     
                     outputs = raw_model(**inputs, labels=labels)
                     loss = outputs.loss
                     val_loss += loss.item()
+
             val_avg_loss = val_loss / len(val_dataloader)
             print(f'train_loss:{avg_loss,}, val_loss:{val_avg_loss}')
             checkpoint_filename = util.generate_filename_with_timestamp('checkpoint', 'pth')
