@@ -1,5 +1,6 @@
 import torch
 import util
+import os
 import torch.distributed as dist
 from transformers import BertTokenizer, BertForSequenceClassification
 from transformers import AdamW
@@ -7,6 +8,8 @@ from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from datasets import load_dataset
+from tqdm import tqdm
+from torch.optim.lr_scheduler import LinearLR
 
 
 
@@ -19,6 +22,7 @@ class Config:
         self.checkpoint ='checkpoint.pth' # None if you don't need it.
         self.batch_size = 32
         self.epoch = 10 #TODO: change this
+        self.padding_max_length = 512
 
     def _get_backend(self, device):
         backend = 'gloo' # default option
@@ -47,9 +51,10 @@ def main():
     config = Config(device)
 
     #set up
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
     dist.init_process_group(backend=config.backend, world_size=config.world_size)
     rank = dist.get_rank()
-    world_size = config.world_size
 
     if config.device == 'cuda':
         torch.cuda.set_device(rank)
@@ -60,8 +65,7 @@ def main():
     try:
         checkpoint=torch.load(config.checkpoint)
     except:
-        pass
-    
+        print('starting with no checkpoint.')
 
     tokenizer = BertTokenizer.from_pretrained(config.bert)
     model = BertForSequenceClassification.from_pretrained(config.bert, num_labels=2)
@@ -72,8 +76,8 @@ def main():
     model = DDP(model)
 
 
-    #TODO: solve learning rate here!
-    optimizer = AdamW(model.parameters(), lr=5e-5)
+    optimizer = AdamW(model.parameters())
+    scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=0.01, total_iters=config.epoch)
     if checkpoint:
         optimizer.load_state_dict(checkpoint['optimizer'])
     
@@ -83,7 +87,7 @@ def main():
     train_dataset = dataset['train']
     val_dataset = dataset['test']
     def tokenize_function(examples):
-        return tokenizer(examples['text'], padding='max_length', truncation=True)
+        return tokenizer(examples['text'], padding='max_length', truncation=True, max_length=config.padding_max_length, return_tensors='pt')
 
     train_dataset = train_dataset.map(tokenize_function, batched=True)
     val_dataset = val_dataset.map(tokenize_function, batched=True)
@@ -98,7 +102,7 @@ def main():
         sampler.set_epoch(epoch)
         model.train()
 
-        for batch in train_dataloader:
+        for batch in tqdm(train_dataloader, desc=f"Epoch {epoch}"):
             inputs, labels = None, None
             if config.device == 'cuda':
                 inputs = {key: val.to(rank) for key, val in batch.items() if key != 'label'}
@@ -112,13 +116,16 @@ def main():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        scheduler.step()
         
         # validation
+        dist.barrier() 
         dist.reduce(loss, dst=0)
         if rank == 0:
             avg_loss = loss.item() / config.world_size
             
             raw_model = model.module
+            # TODO val_loss to ('cuda') ?
             val_loss = 0
             with torch.no_grad():
                 for batch in val_dataloader:
