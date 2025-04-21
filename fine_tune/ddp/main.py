@@ -19,7 +19,7 @@ class Config:
         self.backend = self._get_backend(device)
         self.world_size = self._get_world_size(device)
         self.bert = 'bert-large-uncased'
-        self.checkpoint ='checkpoint.pth' # None if you don't need it.
+        self.checkpoint ='./checkpoint.pth' # None if you don't need it.
         self.batch_size = 32
         self.epoch = 10 #TODO: change this
         self.padding_max_length = 512
@@ -32,11 +32,11 @@ class Config:
             backend = 'nccl'
         return backend
     def _get_world_size(self, device):
-        world_size = 4  #default option
+        world_size = 8  #default option
         if device == 'cuda':
             world_size = torch.cuda.device_count()
         else:
-            world_size = 4
+            world_size = 8
         return world_size
     
 
@@ -64,6 +64,7 @@ def main():
         torch.cuda.set_device(rank)
 
 
+    print("loading checkpoint.")
     #loading checkpoint
     checkpoint = None
     try:
@@ -71,8 +72,12 @@ def main():
     except:
         print('starting with no checkpoint.')
 
+    print("loading model.")
     tokenizer = BertTokenizer.from_pretrained(config.bert)
     model = BertForSequenceClassification.from_pretrained(config.bert, num_labels=2)
+    local_model_path = './bert_model'
+    model.save_pretrained(local_model_path)
+
     if config.device == 'cuda':
         model = model.to(rank)
     if checkpoint and rank == 0: # recover the param from checkpoint
@@ -86,8 +91,9 @@ def main():
         optimizer.load_state_dict(checkpoint['optimizer'])
     
 
-    #TODO: change dataset here.
-    dataset = load_dataset("imdb")
+    print("loading dataset.")
+    local_path = './imdb_dataset'
+    dataset = load_dataset("imdb", cache_dir=local_path)
     train_dataset = dataset['train']
     val_dataset = dataset['test']
     def tokenize_function(examples):
@@ -102,6 +108,7 @@ def main():
     val_dataloader = DataLoader(val_dataset, batch_size=config.batch_size)
 
 
+    print("training")
     for epoch in range(config.epoch):
         sampler.set_epoch(epoch)
         model.train()
