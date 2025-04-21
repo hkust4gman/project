@@ -7,6 +7,8 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from torch.utils.data import DataLoader, Dataset
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+from datasets import load_dataset
+
 
 
 class config:
@@ -33,23 +35,11 @@ class config:
         else:
             world_size = 4
         return world_size
+    
 
 
 def cleanup():
     dist.destroy_process_group()
-
-class SimpleDataset(Dataset):
-    def __init__(self, tokenizer):
-        self.tokenizer = tokenizer
-        self.data = ["Example sentence 1", "Example sentence 2"]
-        self.labels = [0, 1]
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        inputs = self.tokenizer(self.data[idx], return_tensors='pt', padding=True, truncation=True)
-        return inputs, self.labels[idx]
 
 
 def main():
@@ -88,13 +78,20 @@ def main():
     if checkpoint:
         optimizer.load_state_dict(checkpoint['optimizer'])
     
-    #TODO: solve dataset here!
-    dataset = SimpleDataset(tokenizer)
-    sampler = DistributedSampler(dataset)
-    dataloader = DataLoader(dataset, batch_size=config.batch_size, sampler=sampler) # more options can be used
 
-    #TODO: solve val dataset here!
-    val_dataset = SimpleDataset(tokenizer)
+    #TODO: change dataset here.
+    dataset = load_dataset("imdb")
+    dataset = dataset['train']
+    val_dataset = dataset['test']
+    def tokenize_function(examples):
+        return tokenizer(examples['text'], padding='max_length', truncation=True)
+
+    dataset = dataset.map(tokenize_function, batched=True)
+    val_dataset = val_dataset.map(tokenize_function, batched=True)
+
+    sampler = DistributedSampler(dataset)
+    dataloader = DataLoader(dataset, batch_size=config.batch_size, sampler=sampler, shuffle=True) # more options can be used
+
     val_dataloader = DataLoader(val_dataset, batch_size=config.batch_size)
 
 
@@ -102,9 +99,17 @@ def main():
         sampler.set_epoch(config.epoch)
         model.train()
 
-        for inputs, labels in dataloader:
-            inputs = {key: val.squeeze().to(rank) for key, val in inputs.items()}
-            labels = labels.to(rank)
+        for batch in dataloader:
+            inputs, labels = None, None
+            if config.device == 'cuda':
+                inputs = {key: val.to(rank) for key, val in batch.items() if key != 'label'}
+                labels = batch['label'].to(rank)
+            else:
+                inputs = {key: val for key, val in batch.items() if key != 'label'}
+                labels = batch['label']
+
+                
+
 
 
             outputs = model(**inputs, labels=labels)
