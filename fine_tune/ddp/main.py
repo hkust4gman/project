@@ -3,7 +3,7 @@ import util
 import os
 import torch.distributed as dist
 from transformers import BertTokenizer, BertForSequenceClassification
-from transformers import AdamW
+from torch.optim import AdamW
 from torch.utils.data import DataLoader 
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
@@ -53,6 +53,10 @@ def main():
     #set up
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
+    
+    if os.name == 'nt': #windows
+        os.environ["GLOO_USE_LIBUV"] = 0
+
     dist.init_process_group(backend=config.backend, world_size=config.world_size)
     rank = dist.get_rank()
 
