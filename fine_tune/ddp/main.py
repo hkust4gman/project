@@ -1,10 +1,9 @@
-import os
 import torch
 import util
 import torch.distributed as dist
 from transformers import BertTokenizer, BertForSequenceClassification
-from transformers import AdamW, get_linear_schedule_with_warmup
-from torch.utils.data import DataLoader, Dataset
+from transformers import AdamW
+from torch.utils.data import DataLoader 
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from datasets import load_dataset
