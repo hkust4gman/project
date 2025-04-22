@@ -26,16 +26,15 @@ class Config:
         self.padding_max_length = 512
         self.multi_node = False
         self.rank = -1
-        self.dataset_batch_size = 1000
         self.lr = 0.001
 
-    def _get_bert_save_path(bert_type):
+    def _get_bert_save_path(self, bert_type):
         if bert_type == 'bert-large-uncased':
-            return 'bert_model_large'
+            return 'bert-large-uncased'
         if bert_type == 'bert-base-uncased':
-            return 'bert_model_base'
+            return 'bert-base-uncased'
 
-    def _get_dataset_save_path(bert_type):
+    def _get_dataset_save_path(self, bert_type):
         if bert_type == 'bert-large-uncased':
             return 'dataset_large'
         if bert_type == 'bert-base-uncased':
@@ -59,7 +58,12 @@ def main():
     # set this config first please
     print("initializing")
     device = 'cpu'
+    debug = True
     config = Config(device)
+    if debug:
+        config.batch_size = 1
+        config.epoch = 2
+        config.bert = 'bert-base-uncased'
 
     if device == 'cpu' and not config.multi_node:
         dist.init_process_group(backend=config.backend)
@@ -85,6 +89,7 @@ def main():
     tokenizer = BertTokenizer.from_pretrained(config.bert)
     model = BertForSequenceClassification.from_pretrained(config.bert, num_labels=2)
     local_model_path = config.bert_save_path
+    tokenizer.save_pretrained(local_model_path)
     model.save_pretrained(local_model_path)
 
     if config.device == 'cuda':
@@ -115,7 +120,7 @@ def main():
         dataset = dataset.remove_columns(["text"])
         dataset = dataset.rename_column('label', 'labels')
         dataset.set_format(type='torch')
-        dataset.save_to_disk('tokenized_dataset')
+        dataset.save_to_disk(config.dataset_save_path)
         #print(f"rank{config.rank}: dataset column names: {dataset.column_names}")
 
     sampler = DistributedSampler(dataset['train'])

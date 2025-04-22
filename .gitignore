@@ -1,5 +1,9 @@
 fine_tune/ddp/__pycache__/
 fine_tune/ddp/imdb_dataset/
 fine_tune/ddp/tokenized_dataset/
+fine_tune/ddp/bert-base-uncased/
+fine_tune/ddp/bert-large-uncased/
+fine_tune/ddp/dataset_large/
+fine_tune/ddp/dataset_base/
 fine_tune/ddp/bert_model/
 fine_tune/ddp/checkpoint.pth
