@@ -18,6 +18,8 @@ class Config:
         self.backend = self._get_backend(device)
         self.world_size = -1 
         self.bert = 'bert-large-uncased'
+        self.bert_save_path = self._get_bert_save_path(self.bert)
+        self.dataset_save_path = self._get_dataset_save_path(self.bert)
         self.checkpoint ='./checkpoint.pth' # None if you don't need it.
         self.batch_size = 32
         self.epoch = 10 #TODO: change this
@@ -27,6 +29,17 @@ class Config:
         self.dataset_batch_size = 1000
         self.lr = 0.001
 
+    def _get_bert_save_path(bert_type):
+        if bert_type == 'bert-large-uncased':
+            return 'bert_model_large'
+        if bert_type == 'bert-base-uncased':
+            return 'bert_model_base'
+
+    def _get_dataset_save_path(bert_type):
+        if bert_type == 'bert-large-uncased':
+            return 'dataset_large'
+        if bert_type == 'bert-base-uncased':
+            return 'dataset_base'
 
     def _get_backend(self, device):
         backend = 'gloo' # default option
@@ -71,7 +84,7 @@ def main():
     print(f"rank{config.rank}: loading model.")
     tokenizer = BertTokenizer.from_pretrained(config.bert)
     model = BertForSequenceClassification.from_pretrained(config.bert, num_labels=2)
-    local_model_path = './bert_model'
+    local_model_path = config.bert_save_path
     model.save_pretrained(local_model_path)
 
     if config.device == 'cuda':
@@ -89,7 +102,7 @@ def main():
     print(f"rank{config.rank}: loading dataset.")
     dataset = None 
     try:
-        dataset = load_from_disk('tokenized_dataset')
+        dataset = load_from_disk(config.dataset_save_path)
     except:
         print(f"rank{config.rank}: loading not tokenized dataset.")
         local_path = './imdb_dataset'
@@ -165,7 +178,7 @@ def main():
 
             val_avg_loss = val_loss / len(val_dataloader)
             print(f'train_loss:{avg_loss,}, val_loss:{val_avg_loss}')
-            checkpoint_filename = util.generate_filename_with_timestamp('checkpoint', 'pth')
+            checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
             torch.save({'model':model.module.state_dict(), 'optimizer':optimizer.state_dict()}, checkpoint_filename)
         
         dist.barrier() 
