@@ -1,1 +1,1 @@
-torchrun --nproc-per-node 8 main.py
+torchrun --nproc-per-node 2 main.py

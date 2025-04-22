@@ -1,0 +1,5 @@
+fine_tune/ddp/__pycache__/
+fine_tune/ddp/imdb_dataset/
+fine_tune/ddp/tokenized_dataset/
+fine_tune/ddp/bert_model/
+fine_tune/ddp/checkpoint.pth

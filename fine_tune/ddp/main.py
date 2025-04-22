@@ -7,7 +7,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader 
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
 from torch.optim.lr_scheduler import LinearLR
 
@@ -17,12 +17,15 @@ class Config:
     def __init__(self, device):
         self.device = device
         self.backend = self._get_backend(device)
-        self.world_size = self._get_world_size(device)
+        self.world_size = -1 
         self.bert = 'bert-large-uncased'
         self.checkpoint ='./checkpoint.pth' # None if you don't need it.
         self.batch_size = 32
         self.epoch = 10 #TODO: change this
         self.padding_max_length = 512
+        self.multi_node = False
+        self.rank = -1
+        self.dataset_batch_size = 1000
 
     def _get_backend(self, device):
         backend = 'gloo' # default option
@@ -31,13 +34,6 @@ class Config:
         elif device == 'cuda':
             backend = 'nccl'
         return backend
-    def _get_world_size(self, device):
-        world_size = 8  #default option
-        if device == 'cuda':
-            world_size = torch.cuda.device_count()
-        else:
-            world_size = 8
-        return world_size
     
 
 
@@ -47,40 +43,39 @@ def cleanup():
 
 def main():
     # set this config first please
+    print("initializing")
     device = 'cpu'
     config = Config(device)
 
-    #set up
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
-    
-    if os.name == 'nt': #windows
-        os.environ["GLOO_USE_LIBUV"] = 0
-
-    dist.init_process_group(backend=config.backend, world_size=config.world_size)
-    rank = dist.get_rank()
+    if device == 'cpu' and not config.multi_node:
+        dist.init_process_group(backend=config.backend)
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+        config.world_size = world_size
+        config.rank = rank 
 
     if config.device == 'cuda':
+        #TODO: do the cuda things
         torch.cuda.set_device(rank)
 
 
-    print("loading checkpoint.")
+    print(f"rank{config.rank}: loading checkpoint.")
     #loading checkpoint
     checkpoint = None
     try:
         checkpoint=torch.load(config.checkpoint)
     except:
-        print('starting with no checkpoint.')
+        print(f"rank{config.rank}: starting with no checkpoint.")
 
-    print("loading model.")
+    print(f"rank{config.rank}: loading model.")
     tokenizer = BertTokenizer.from_pretrained(config.bert)
     model = BertForSequenceClassification.from_pretrained(config.bert, num_labels=2)
     local_model_path = './bert_model'
     model.save_pretrained(local_model_path)
 
     if config.device == 'cuda':
-        model = model.to(rank)
-    if checkpoint and rank == 0: # recover the param from checkpoint
+        model = model.to(config.rank)
+    if checkpoint and config.rank == 0: # recover the param from checkpoint
         model.load_state_dict(checkpoint['model'])
     model = DDP(model)
 
@@ -91,48 +86,63 @@ def main():
         optimizer.load_state_dict(checkpoint['optimizer'])
     
 
-    print("loading dataset.")
-    local_path = './imdb_dataset'
-    dataset = load_dataset("imdb", cache_dir=local_path)
-    train_dataset = dataset['train']
-    val_dataset = dataset['test']
-    def tokenize_function(examples):
-        return tokenizer(examples['text'], padding='max_length', truncation=True, max_length=config.padding_max_length, return_tensors='pt')
+    print(f"rank{config.rank}: loading dataset.")
+    dataset = None 
+    try:
+        dataset = load_from_disk('tokenized_dataset')
+    except:
+        print(f"rank{config.rank}: loading not tokenized dataset.")
+        local_path = './imdb_dataset'
+        dataset = load_dataset("imdb", cache_dir=local_path)
+        def tokenize_function(batch):
+            return tokenizer(batch['text'], padding=True, truncation=True)
 
-    train_dataset = train_dataset.map(tokenize_function, batched=True)
-    val_dataset = val_dataset.map(tokenize_function, batched=True)
+        dataset = dataset.map(tokenize_function, batched=True)
+        #print(f"rank{config.rank}: dataset column names: {dataset.column_names}")
+        dataset = dataset.remove_columns(["text"])
+        dataset = dataset.rename_column('label', 'labels')
+        dataset.set_format(type='torch')
+        dataset.save_to_disk('tokenized_dataset')
+        #print(f"rank{config.rank}: dataset column names: {dataset.column_names}")
 
-    sampler = DistributedSampler(train_dataset)
-    train_dataloader = DataLoader(train_dataset, batch_size=config.batch_size, sampler=sampler) # more options can be used
+    sampler = DistributedSampler(dataset['train'])
+    train_dataloader = DataLoader(dataset['train'], batch_size=config.batch_size, sampler=sampler) # more options can be used
+    val_dataloader = DataLoader(dataset['test'], batch_size=config.batch_size)
+   # for batch in train_dataloader:
+   #     print(f'rank{config.rank}:')
+   #     for k, v in batch.items():
+   #         print(k, v)
+   #     break
 
-    val_dataloader = DataLoader(val_dataset, batch_size=config.batch_size)
 
-
-    print("training")
+    print(f"rank{config.rank}: training")
     for epoch in range(config.epoch):
         sampler.set_epoch(epoch)
         model.train()
 
         for batch in tqdm(train_dataloader, desc=f"Epoch {epoch}"):
-            inputs, labels = None, None
+            inputs = batch
             if config.device == 'cuda':
-                inputs = {key: val.to(rank) for key, val in batch.items() if key != 'label'}
-                labels = batch['label'].to(rank)
+                inputs = {k: v.to(config.rank) for k, v in inputs.items()}
             else:
-                inputs = {key: val for key, val in batch.items() if key != 'label'}
-                labels = batch['label']
+                inputs = {k: v for k, v in inputs.items()}
 
-            outputs = model(**inputs, labels=labels)
+
+            print(f"rank{config.rank}: getting outputs")
+            #DEBUG: some bug here, program crash when getting outputs
+            outputs = model(**inputs)
             loss = outputs.loss
+            print(f"rank{config.rank}: loss:{loss}")
             optimizer.zero_grad()
             loss.backward()
+            print(f"rank{config.rank}: backward")
             optimizer.step()
         scheduler.step()
         
         # validation
         dist.barrier() 
         dist.reduce(loss, dst=0)
-        if rank == 0:
+        if config.rank == 0:
             avg_loss = loss.item() / config.world_size
             
             raw_model = model.module
@@ -140,15 +150,13 @@ def main():
             val_loss = 0
             with torch.no_grad():
                 for batch in val_dataloader:
-                    inputs, labels = None, None
+                    inputs = batch
                     if config.device == 'cuda':
-                        inputs = {key: val.to(rank) for key, val in batch.items() if key != 'label'}
-                        labels = batch['label'].to(rank)
+                        inputs = {k: v.to(config.rank) for k, v in inputs.items()}
                     else:
-                        inputs = {key: val for key, val in batch.items() if key != 'label'}
-                        labels = batch['label']
+                        inputs = {k: v for k, v in inputs.items()}
                     
-                    outputs = raw_model(**inputs, labels=labels)
+                    outputs = raw_model(**inputs)
                     loss = outputs.loss
                     val_loss += loss.item()
 
