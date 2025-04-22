@@ -9,6 +9,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
+import wandb
+
 
 
 
@@ -64,6 +66,9 @@ def main():
         config.batch_size = 1
         config.epoch = 2
         config.bert = 'bert-base-uncased'
+
+    project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}", '')
+    wandb.init(project=project_name)
 
     if device == 'cpu' and not config.multi_node:
         dist.init_process_group(backend=config.backend)
@@ -183,12 +188,32 @@ def main():
 
             val_avg_loss = val_loss / len(val_dataloader)
             print(f'train_loss:{avg_loss,}, val_loss:{val_avg_loss}')
+
+            max_allocated_memory, max_reserved_memory, allocated_memory, reserved_memory = None
+            if torch.cuda.is_available():
+                max_allocated_memory = torch.cuda.max_memory_allocated()
+                max_reserved_memory = torch.cuda.max_memory_reserved()
+                print(f"Max allocated memory: {max_allocated_memory / 1024**2} MB")
+                print(f"Max reserved memory: {max_reserved_memory / 1024**2} MB")
+                allocated_memory = torch.cuda.memory_allocated()
+                reserved_memory = torch.cuda.memory_reserved()
+                print(f"Allocated memory: {allocated_memory / 1024**2} MB")
+                print(f"Reserved memory: {reserved_memory / 1024**2} MB")
+            wandb.log({
+                "val loss": avg_loss,
+                "train loss": val_avg_loss,
+                "epoch": epoch,
+                "alloc cuda memo": allocated_memory,
+                "reserved cuda memo": reserved_memory,
+                "max_alloc cuda memo": max_allocated_memory,
+                "max_reserved cuda memo": max_reserved_memory,
+            })
             checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
             torch.save({'model':model.module.state_dict(), 'optimizer':optimizer.state_dict()}, checkpoint_filename)
         
         dist.barrier() 
 
-
+    wandb.finish()
     cleanup()
 
 
