@@ -8,3 +8,4 @@ fine_tune/ddp/dataset_base/
 fine_tune/ddp/bert_model/
 fine_tune/ddp/wandb/
 fine_tune/ddp/checkpoint.pth
+checkpoint*

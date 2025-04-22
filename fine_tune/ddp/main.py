@@ -89,8 +89,7 @@ def main():
     tokenizer.save_pretrained(local_model_path)
     model.save_pretrained(local_model_path)
 
-    if config.device == 'cuda':
-        model = model.to(config.device_name)
+    model = model.to(config.device_name)
     if checkpoint and config.rank == 0: # recover the param from checkpoint
         model.load_state_dict(checkpoint['model'])
     model = DDP(model)
@@ -134,13 +133,10 @@ def main():
     for epoch in range(config.epoch):
         sampler.set_epoch(epoch)
         model.train()
-
-        for batch in tqdm(train_dataloader[10 if config.debug else -1], desc=f"Epoch {epoch}"):
+        train_dataloader = list(train_dataloader)[:10] if config.debug else train_dataloader
+        for batch in tqdm(train_dataloader, desc=f"Epoch {epoch}"):
             inputs = batch
-            if config.device == 'cuda':
-                inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
-            else:
-                inputs = {k: v for k, v in inputs.items()}
+            inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
 
 
             print(f"rank{config.rank}: getting outputs")
@@ -167,12 +163,10 @@ def main():
             # TODO val_loss to ('cuda') ?
             val_loss = 0
             with torch.no_grad():
-                for batch in val_dataloader:
+                val_dataloader = list(val_dataloader)[:10] if config.debug else val_dataloader
+                for batch in tqdm(val_dataloader, desc=f"Epoch {epoch}"):
                     inputs = batch
-                    if config.device == 'cuda':
-                        inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
-                    else:
-                        inputs = {k: v for k, v in inputs.items()}
+                    inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
                     
                     outputs = raw_model(**inputs)
                     loss = outputs.loss
@@ -181,7 +175,7 @@ def main():
             val_avg_loss = val_loss / len(val_dataloader)
             print(f'train_loss:{avg_loss,}, val_loss:{val_avg_loss}')
 
-            max_allocated_memory, max_reserved_memory, allocated_memory, reserved_memory = None
+            max_allocated_memory, max_reserved_memory, allocated_memory, reserved_memory = None, None, None, None
             if torch.cuda.is_available():
                 max_allocated_memory = torch.cuda.max_memory_allocated()
                 max_reserved_memory = torch.cuda.max_memory_reserved()
