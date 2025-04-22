@@ -9,7 +9,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
-from torch.optim.lr_scheduler import LinearLR
 
 
 
@@ -26,6 +25,8 @@ class Config:
         self.multi_node = False
         self.rank = -1
         self.dataset_batch_size = 1000
+        self.lr = 0.001
+
 
     def _get_backend(self, device):
         backend = 'gloo' # default option
@@ -80,8 +81,7 @@ def main():
     model = DDP(model)
 
 
-    optimizer = AdamW(model.parameters())
-    scheduler = LinearLR(optimizer, start_factor=1.0, end_factor=0.01, total_iters=config.epoch)
+    optimizer = AdamW(model.parameters(), lr=config.lr)
     if checkpoint:
         optimizer.load_state_dict(checkpoint['optimizer'])
     
@@ -130,14 +130,17 @@ def main():
 
             print(f"rank{config.rank}: getting outputs")
             #DEBUG: some bug here, program crash when getting outputs
-            outputs = model(**inputs)
-            loss = outputs.loss
-            print(f"rank{config.rank}: loss:{loss}")
-            optimizer.zero_grad()
-            loss.backward()
-            print(f"rank{config.rank}: backward")
-            optimizer.step()
-        scheduler.step()
+            try:
+                outputs = model(**inputs)
+                print(f"rank{config.rank}: getting loss")
+                loss = outputs.loss
+                print(f"rank{config.rank}: loss:{loss}")
+                optimizer.zero_grad()
+                loss.backward()
+                print(f"rank{config.rank}: backward")
+                optimizer.step()
+            except Exception as e:
+                print(f'Error occurred: {e}')
         
         # validation
         dist.barrier() 
