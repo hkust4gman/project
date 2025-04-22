@@ -24,7 +24,7 @@ class Config:
         self.bert = 'bert-large-uncased'
         self.bert_save_path = self._get_bert_save_path(self.bert)
         self.dataset_save_path = self._get_dataset_save_path(self.bert)
-        self.checkpoint ='./checkpoint.pth' # None if you don't need it.
+        self.checkpoint ='./checkpoint_bert-base-uncased_20250423_010007.pth' # None if you don't need it.
         self.batch_size = 32
         self.epoch = 10 #TODO: change this
         self.padding_max_length = 512
@@ -71,8 +71,9 @@ def main():
     device = 'cpu'
     config = Config(device)
 
-    project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}", '')
-    wandb.init(project=project_name)
+    if config.rank == 0:
+        project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}", '')
+        wandb.init(project=project_name)
 
     print(f"rank{config.rank}: loading checkpoint.")
     #loading checkpoint
