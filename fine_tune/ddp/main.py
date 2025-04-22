@@ -18,7 +18,9 @@ class Config:
     def __init__(self, device):
         self.device = device
         self.backend = self._get_backend(device)
-        self.world_size = -1 
+        dist.init_process_group(backend=self.backend)
+        self.rank = dist.get_rank()
+        self.world_size = dist.get_world_size()
         self.bert = 'bert-large-uncased'
         self.bert_save_path = self._get_bert_save_path(self.bert)
         self.dataset_save_path = self._get_dataset_save_path(self.bert)
@@ -27,9 +29,16 @@ class Config:
         self.epoch = 10 #TODO: change this
         self.padding_max_length = 512
         self.multi_node = False
-        self.rank = -1
         self.lr = 0.001
+        self.device_name = self._get_device_name(self.device, self.rank)
+        self.debug = True
+        if self.debug:
+            self.batch_size = 1
+            self.epoch = 2
+            self.bert = 'bert-base-uncased'
 
+    def _get_device_name(self, device, rank):
+        return f"{device}:{rank}"
     def _get_bert_save_path(self, bert_type):
         if bert_type == 'bert-large-uncased':
             return 'bert-large-uncased'
@@ -60,27 +69,10 @@ def main():
     # set this config first please
     print("initializing")
     device = 'cpu'
-    debug = True
     config = Config(device)
-    if debug:
-        config.batch_size = 1
-        config.epoch = 2
-        config.bert = 'bert-base-uncased'
 
     project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}", '')
     wandb.init(project=project_name)
-
-    if device == 'cpu' and not config.multi_node:
-        dist.init_process_group(backend=config.backend)
-        rank = dist.get_rank()
-        world_size = dist.get_world_size()
-        config.world_size = world_size
-        config.rank = rank 
-
-    if config.device == 'cuda':
-        #TODO: do the cuda things
-        torch.cuda.set_device(rank)
-
 
     print(f"rank{config.rank}: loading checkpoint.")
     #loading checkpoint
@@ -98,7 +90,7 @@ def main():
     model.save_pretrained(local_model_path)
 
     if config.device == 'cuda':
-        model = model.to(config.rank)
+        model = model.to(config.device_name)
     if checkpoint and config.rank == 0: # recover the param from checkpoint
         model.load_state_dict(checkpoint['model'])
     model = DDP(model)
@@ -143,10 +135,10 @@ def main():
         sampler.set_epoch(epoch)
         model.train()
 
-        for batch in tqdm(train_dataloader, desc=f"Epoch {epoch}"):
+        for batch in tqdm(train_dataloader[10 if config.debug else -1], desc=f"Epoch {epoch}"):
             inputs = batch
             if config.device == 'cuda':
-                inputs = {k: v.to(config.rank) for k, v in inputs.items()}
+                inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
             else:
                 inputs = {k: v for k, v in inputs.items()}
 
@@ -178,7 +170,7 @@ def main():
                 for batch in val_dataloader:
                     inputs = batch
                     if config.device == 'cuda':
-                        inputs = {k: v.to(config.rank) for k, v in inputs.items()}
+                        inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
                     else:
                         inputs = {k: v for k, v in inputs.items()}
                     
