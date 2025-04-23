@@ -142,6 +142,7 @@ def main():
         sampler.set_epoch(epoch)
         model.train()
         train_dataloader = list(train_dataloader)[:10] if config.debug else train_dataloader
+        cnt = 0
         for batch in tqdm(train_dataloader, desc=f"Epoch {epoch}"):
             inputs = batch
             inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
@@ -158,8 +159,27 @@ def main():
                 loss.backward()
                 print(f"rank{config.rank}: backward")
                 optimizer.step()
+                max_allocated_memory, max_reserved_memory, allocated_memory, reserved_memory = None, None, None, None
+                if torch.cuda.is_available():
+                    max_allocated_memory = torch.cuda.max_memory_allocated()
+                    max_reserved_memory = torch.cuda.max_memory_reserved()
+                    print(f"Max allocated memory: {max_allocated_memory / 1024**2} MB")
+                    print(f"Max reserved memory: {max_reserved_memory / 1024**2} MB")
+                    allocated_memory = torch.cuda.memory_allocated()
+                    reserved_memory = torch.cuda.memory_reserved()
+                    print(f"Allocated memory: {allocated_memory / 1024**2} MB")
+                    print(f"Reserved memory: {reserved_memory / 1024**2} MB")
+                wandb.log({
+                    'batch cnt': cnt,
+                    "train loss": loss,
+                    "alloc cuda memo": allocated_memory,
+                    "reserved cuda memo": reserved_memory,
+                    "max_alloc cuda memo": max_allocated_memory,
+                    "max_reserved cuda memo": max_reserved_memory
+                })
             except Exception as e:
                 print(f'Error occurred: {e}')
+            cnt = cnt + 1
         
         # validation
         dist.barrier() 
@@ -183,24 +203,10 @@ def main():
             val_avg_loss = val_loss / len(val_dataloader)
             print(f'train_loss:{avg_loss,}, val_loss:{val_avg_loss}')
 
-            max_allocated_memory, max_reserved_memory, allocated_memory, reserved_memory = None, None, None, None
-            if torch.cuda.is_available():
-                max_allocated_memory = torch.cuda.max_memory_allocated()
-                max_reserved_memory = torch.cuda.max_memory_reserved()
-                print(f"Max allocated memory: {max_allocated_memory / 1024**2} MB")
-                print(f"Max reserved memory: {max_reserved_memory / 1024**2} MB")
-                allocated_memory = torch.cuda.memory_allocated()
-                reserved_memory = torch.cuda.memory_reserved()
-                print(f"Allocated memory: {allocated_memory / 1024**2} MB")
-                print(f"Reserved memory: {reserved_memory / 1024**2} MB")
             wandb.log({
                 "val loss": avg_loss,
-                "train loss": val_avg_loss,
+                "train avg loss": val_avg_loss,
                 "epoch": epoch,
-                "alloc cuda memo": allocated_memory,
-                "reserved cuda memo": reserved_memory,
-                "max_alloc cuda memo": max_allocated_memory,
-                "max_reserved cuda memo": max_reserved_memory,
             })
             checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
             torch.save({'model':model.module.state_dict(), 'optimizer':optimizer.state_dict()}, checkpoint_filename)
