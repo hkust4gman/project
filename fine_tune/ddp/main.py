@@ -153,8 +153,6 @@ def main():
                 outputs = model(**inputs)
                 print(f"rank{config.rank}: getting loss")
                 loss = outputs.loss
-                print(dir(loss))  
-                print(loss.__dict__)  
                 print(f"rank{config.rank}: loss:{loss}")
                 optimizer.zero_grad()
                 loss.backward()
