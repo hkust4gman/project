@@ -18,14 +18,7 @@ class Config:
     def __init__(self, device):
         self.device = device
         self.backend = self._get_backend(device)
-        if self.device == 'cuda':
-            rank          = int(os.environ["SLURM_PROCID"])
-            world_size    = int(os.environ["WORLD_SIZE"])
-            gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
-            assert gpus_per_node == torch.cuda.device_count()
-            dist.init_process_group(backend=self.backend, rank=rank, world_size=world_size)
-        else:
-            dist.init_process_group(backend=self.backend)
+        dist.init_process_group(backend=self.backend)
         self.rank = dist.get_rank()
         self.world_size = dist.get_world_size()
         self.bert = 'bert-large-uncased'

@@ -31,5 +31,4 @@ echo "MASTER_ADDR="$MASTER_ADDR
 source ~/.bashrc
 
 cd $HOME//5003/project/fine_tune/ddp
-echo "here"
-python -u main.py
+torchrun --nproc_per_node=2 main.py
