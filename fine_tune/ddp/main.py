@@ -58,6 +58,10 @@ class Config:
         elif device == 'cuda':
             backend = 'nccl'
         return backend
+
+    def print_variables(self):
+        for var_name, var_value in self.__dict__.items():
+            print(f"{var_name}: {var_value}")
     
 
 
@@ -68,8 +72,9 @@ def cleanup():
 def main():
     # set this config first please
     print("initializing")
-    device = 'cpu'
+    device = 'cuda'
     config = Config(device)
+    config.print_variables()
 
     if config.rank == 0:
         project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}", '')
