@@ -31,4 +31,5 @@ echo "MASTER_ADDR="$MASTER_ADDR
 source ~/.bashrc
 
 cd $HOME//5003/project/fine_tune/ddp
-python main.py
+echo "here"
+python -u main.py
