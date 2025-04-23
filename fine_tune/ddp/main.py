@@ -85,7 +85,9 @@ def main():
 
     if config.rank == 0:
         project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}", '')
+        print("initializing wandb")
         wandb.init(project=project_name)
+        print("finished initializing wandb")
 
     print(f"rank{config.rank}: loading checkpoint.")
     #loading checkpoint
