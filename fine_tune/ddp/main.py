@@ -72,7 +72,7 @@ def cleanup():
 def main():
     # set this config first please
     print("initializing")
-    device = 'cuda'
+    device = 'cpu'
     config = Config(device)
     config.print_variables()
 
@@ -151,6 +151,8 @@ def main():
                 outputs = model(**inputs)
                 print(f"rank{config.rank}: getting loss")
                 loss = outputs.loss
+                print(dir(loss))  
+                print(loss.__dict__)  
                 print(f"rank{config.rank}: loss:{loss}")
                 optimizer.zero_grad()
                 loss.backward()

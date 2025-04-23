@@ -12,11 +12,16 @@
 
 
 #SBATCH --nodes=1                # node count
+#SBATCH --ntasks-per-node=2      # total number of tasks per node
+#SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --gpus=2                 # number of GPUs per node(only valid under large/normal partition)
 
 #SBATCH -o logs/out%j.log
 #SBATCH -e logs/err%j.log
 
+export MASTER_PORT=$(get_free_port)
+export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
+echo "WORLD_SIZE="$WORLD_SIZE
 
 source ~/.bash_profile
 
