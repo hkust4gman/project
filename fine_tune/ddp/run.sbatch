@@ -15,6 +15,7 @@
 #SBATCH --ntasks-per-node=2      # total number of tasks per node
 #SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --gpus=2                 # number of GPUs per node(only valid under large/normal partition)
+#SBATCH --account=mscbdt2024
 
 #SBATCH -o logs/out%j.log
 #SBATCH -e logs/err%j.log
