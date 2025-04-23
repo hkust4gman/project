@@ -184,8 +184,9 @@ def main():
             avg_loss = loss.item() / config.world_size
             
             raw_model = model.module
-            # TODO val_loss to ('cuda') ?
             val_loss = 0
+            correct = 0
+            total =0
             with torch.no_grad():
                 val_dataloader = list(val_dataloader)[:10] if config.debug else val_dataloader
                 for batch in tqdm(val_dataloader, desc=f"Epoch {epoch}"):
