@@ -8,7 +8,7 @@
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
 
-#SBATCH -p gpu
+#SBATCH -p normal 
 
 
 #SBATCH --nodes=1                # node count
