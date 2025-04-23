@@ -24,14 +24,14 @@ class Config:
         self.bert = 'bert-large-uncased'
         self.bert_save_path = self._get_bert_save_path(self.bert)
         self.dataset_save_path = self._get_dataset_save_path(self.bert)
-        self.checkpoint ='./checkpoint_bert-base-uncased_20250423_010007.pth' # None if you don't need it.
-        self.batch_size = 32
-        self.epoch = 10 #TODO: change this
+        self.checkpoint ='none' # None if you don't need it.
+        self.batch_size = 32 
+        self.epoch = 2 #TODO: change this
         self.padding_max_length = 512
         self.multi_node = False
-        self.lr = 0.001
+        self.lr = 1e-5
         self.device_name = self._get_device_name(self.device, self.rank)
-        self.debug = True
+        self.debug = False 
         if self.debug:
             self.batch_size = 1
             self.epoch = 2
