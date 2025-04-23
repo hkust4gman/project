@@ -20,7 +20,7 @@
 #SBATCH -o logs/out%j.log
 #SBATCH -e logs/err%j.log
 
-export MASTER_PORT=$(get_free_port)
+export MASTER_PORT=29500
 export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
 echo "WORLD_SIZE="$WORLD_SIZE
 
