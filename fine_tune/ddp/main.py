@@ -71,16 +71,12 @@ def cleanup():
 
 def main():
     # set this config first please
-    print("initializing")
     device = 'cuda'
     config = Config(device)
     config.print_variables()
 
-    if config.rank == 0:
-        project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}", '')
-        print("initializing wandb")
-        wandb.init(project=project_name)
-        print("finished initializing wandb")
+    project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}_{config.rank}", '')
+    wandb.init(project=project_name)
 
     print(f"rank{config.rank}: loading checkpoint.")
     #loading checkpoint
@@ -163,12 +159,12 @@ def main():
                 if torch.cuda.is_available():
                     max_allocated_memory = torch.cuda.max_memory_allocated()
                     max_reserved_memory = torch.cuda.max_memory_reserved()
-                    print(f"Max allocated memory: {max_allocated_memory / 1024**2} MB")
-                    print(f"Max reserved memory: {max_reserved_memory / 1024**2} MB")
+                    print(f"rank{config.rank}: Max allocated memory: {max_allocated_memory / 1024**2} MB")
+                    print(f"rank{config.rank}: Max reserved memory: {max_reserved_memory / 1024**2} MB")
                     allocated_memory = torch.cuda.memory_allocated()
                     reserved_memory = torch.cuda.memory_reserved()
-                    print(f"Allocated memory: {allocated_memory / 1024**2} MB")
-                    print(f"Reserved memory: {reserved_memory / 1024**2} MB")
+                    print(f"rank{config.rank}: Allocated memory: {allocated_memory / 1024**2} MB")
+                    print(f"rank{config.rank}: Reserved memory: {reserved_memory / 1024**2} MB")
                 wandb.log({
                     'batch cnt': cnt,
                     "train loss": loss,
@@ -201,7 +197,7 @@ def main():
                     val_loss += loss.item()
 
             val_avg_loss = val_loss / len(val_dataloader)
-            print(f'train_loss:{avg_loss,}, val_loss:{val_avg_loss}')
+            print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}')
 
             wandb.log({
                 "val loss": avg_loss,
