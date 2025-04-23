@@ -196,12 +196,19 @@ def main():
                     loss = outputs.loss
                     val_loss += loss.item()
 
+                    #acc
+                    predictions = torch.argmax(outputs.logits, dim=-1)
+                    correct += (predictions == inputs['labels']).sum().item()
+                    total += inputs['labels'].size(0)
+
             val_avg_loss = val_loss / len(val_dataloader)
-            print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}')
+            acc = correct / total
+            print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}')
 
             wandb.log({
                 "val loss": avg_loss,
                 "train avg loss": val_avg_loss,
+                "acc": acc,
                 "epoch": epoch,
             })
             checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
