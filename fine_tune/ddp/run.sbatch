@@ -2,7 +2,7 @@
 
 #SBATCH -J ddp                                      #Slurm job name
 
-#SBATCH -t 48:00:00                                #Maximum runtime of 48 hours
+#SBATCH -t 2:00:00                                #Maximum runtime of 48 hours
 
 #SBATCH --mail-user=user_name@ust.hk #Update your email address
 #SBATCH --mail-type=begin
