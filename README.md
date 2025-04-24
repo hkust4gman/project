@@ -32,6 +32,7 @@ Please save some statistic data about your **training**, **data cleaning** etc, 
 # Param
 learning rate: 1e-5
 epoch: 1
-dataset size: 1/4
+how many batch to train: 22,500
+how many batch to eval: 2,250
 batch size: 200 
 fp: fp32

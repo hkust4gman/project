@@ -30,17 +30,20 @@ class Config:
         else:
             self.dataset_save_path = self._get_dataset_save_path(self.bert)
         self.checkpoint ='none' # None if you don't need it.
-        self.batch_size = 128 
-        self.epoch = 4 #TODO: change this
+        self.batch_size = 200 
+        self.epoch = 1 
         self.padding_max_length = 512
         self.multi_node = False
         self.lr = 1e-5
         self.device_name = self._get_device_name(self.device, self.rank)
+        self.num_limit = 22500 
+        self.eval_interval = self.num_limit // 10
         self.debug = False 
         if self.debug:
-            self.batch_size = 1
+            self.batch_size = 10
             self.epoch = 2
-            self.bert = 'bert-base-uncased'
+            self.num_limit = 100
+            self.eval_interval = self.num_limit // 10
 
     def _get_device_name(self, device, rank):
         return f"{device}:{rank}"
@@ -144,16 +147,17 @@ def main():
     for epoch in range(config.epoch):
         sampler.set_epoch(epoch)
         model.train()
-        train_dataloader = list(train_dataloader)[:10] if config.debug else train_dataloader
-        cnt = 0
         start_time = time.time()  
-        for batch in tqdm(train_dataloader, desc=f"Epoch {epoch}"):
+        num_limit = config.num_limit 
+        eval_interval = config.eval_interval 
+        for i, batch in enumerate(train_dataloader):
+            if i >= num_limit:
+                break
             inputs = batch
             inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
 
 
             print(f"rank{config.rank}: getting outputs")
-            #DEBUG: some bug here, program crash when getting outputs
             try:
                 outputs = model(**inputs)
                 print(f"rank{config.rank}: getting loss")
@@ -174,7 +178,7 @@ def main():
                     print(f"rank{config.rank}: allocated memory: {allocated_memory} GB")
                     print(f"rank{config.rank}: Reserved memory: {reserved_memory} GB")
                 wandb.log({
-                    'batch cnt': cnt,
+                    'batch cnt': i,
                     "train loss": loss,
                     "alloc cuda memo": allocated_memory,
                     "reserved cuda memo": reserved_memory,
@@ -183,49 +187,49 @@ def main():
                 })
             except Exception as e:
                 print(f'Error occurred: {e}')
-            cnt = cnt + 1
-        
-        end_time = time.time() 
-        duration = end_time - start_time 
-        print(f"epoch{epoch}: finished in {duration / 60**2}h.", duration)
-        # validation
-        dist.barrier() 
-        dist.reduce(loss, dst=0)
-        if config.rank == 0:
-            avg_loss = loss.item() / config.world_size
             
-            raw_model = model.module
-            val_loss = 0
-            correct = 0
-            total =0
-            with torch.no_grad():
-                val_dataloader = list(val_dataloader)[:10] if config.debug else val_dataloader
-                for batch in tqdm(val_dataloader, desc=f"Epoch {epoch}"):
-                    inputs = batch
-                    inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
+            if (i + 1) % eval_interval == 0:
+                end_time = time.time() 
+                duration = end_time - start_time 
+                print(f"eval {(i + 1) // eval_interval}: finished in {duration / 60**2}h.", duration)
+                # validation
+                dist.barrier() 
+                dist.reduce(loss, dst=0)
+                if config.rank == 0:
+                    avg_loss = loss.item() / config.world_size
                     
-                    outputs = raw_model(**inputs)
-                    loss = outputs.loss
-                    val_loss += loss.item()
+                    raw_model = model.module
+                    val_loss = 0
+                    correct = 0
+                    total =0
+                    with torch.no_grad():
+                        for batch in tqdm(val_dataloader, desc=f"Epoch {epoch}"):
+                            inputs = batch
+                            inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
+                            
+                            outputs = raw_model(**inputs)
+                            loss = outputs.loss
+                            val_loss += loss.item()
 
-                    #acc
-                    predictions = torch.argmax(outputs.logits, dim=-1)
-                    correct += (predictions == inputs['labels']).sum().item()
-                    total += inputs['labels'].size(0)
+                            #acc
+                            predictions = torch.argmax(outputs.logits, dim=-1)
+                            correct += (predictions == inputs['labels']).sum().item()
+                            total += inputs['labels'].size(0)
 
-            val_avg_loss = val_loss / len(val_dataloader)
-            acc = correct / total
-            print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}')
+                    val_avg_loss = val_loss / len(val_dataloader)
+                    acc = correct / total
+                    print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}')
 
-            wandb.log({
-                "val loss": avg_loss,
-                "train avg loss": val_avg_loss,
-                "acc": acc,
-                "epoch": epoch,
-                "duration": duration
-            })
-            checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
-            torch.save({'model':model.module.state_dict(), 'optimizer':optimizer.state_dict()}, checkpoint_filename)
+                    wandb.log({
+                        "val loss": avg_loss,
+                        "train avg loss": val_avg_loss,
+                        "acc": acc,
+                        "eval index": ((i + 1) // eval_interval),
+                        "epoch": epoch,
+                        "duration": duration
+                    })
+                    checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
+                    torch.save({'model':model.module.state_dict(), 'optimizer':optimizer.state_dict()}, checkpoint_filename)
         
         dist.barrier() 
 
