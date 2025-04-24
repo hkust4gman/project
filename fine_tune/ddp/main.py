@@ -48,7 +48,7 @@ class Config:
             batch_count = 100 
             self.num_limit = batch_count* self.batch_size
             self.eval_interval_per_x_batch = batch_count // 10
-            self.val_num_limit = 10
+            self.val_num_limit = 100
 
     def _get_device_name(self, device, rank):
         return f"{device}:{rank}"
