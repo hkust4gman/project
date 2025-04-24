@@ -243,19 +243,19 @@ def main():
                             total += inputs['labels'].size(0)
 
                     val_avg_loss = val_loss / len(val_dataloader)
-                    precision = precision_score(all_labels, all_predictions, average='weighted')
-                    recall = recall_score(all_labels, all_predictions, average='weighted')
-                    f1 = f1_score(all_labels, all_predictions, average='weighted')
+                    precision = precision_score(all_labels, all_predictions, average=None)
+                    recall = recall_score(all_labels, all_predictions, average=None)
+                    f1 = f1_score(all_labels, all_predictions, average=None)
                     acc = correct / total
-                    print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}, prec{precision:.4f}, recall:{recall:.4f}, f1:{f1:.4f},')
+                    print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}, prec{precision}, recall:{recall}, f1:{f1},')
 
                     wandb.log({
                         "val loss": avg_loss,
                         "train avg loss": val_avg_loss,
                         "acc": acc,
-                        "prec": precision,
-                        "recall": recall,
-                        "f1": f1,
+                        "precisions": precision,
+                        "recalls": recall,
+                        "f1s": f1,
                         "eval index": ((i + 1) // eval_interval),
                         "epoch": epoch,
                         "duration": duration
