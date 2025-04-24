@@ -22,6 +22,8 @@ class Config:
         self.backend = self._get_backend(device)
         dist.init_process_group(backend=self.backend)
         self.rank = dist.get_rank()
+        if self.device == 'cuda':
+            torch.cuda.set_device(self.rank)
         self.world_size = dist.get_world_size()
         self.bert = 'bert-large-uncased'
         self.bert_save_path = self._get_bert_save_path(self.bert)
