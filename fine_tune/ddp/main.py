@@ -43,7 +43,7 @@ class Config:
         self.num_limit = batch_count* self.batch_size
         self.eval_interval_per_x_batch = batch_count // 10
         self.val_num_limit = 1000
-        self.debug = True
+        self.debug = False 
         if self.debug:
             self.batch_size = 128
             self.epoch = 2
