@@ -32,8 +32,9 @@ Please save some statistic data about your **training**, **data cleaning** etc, 
 # Param
 learning rate: 1e-5
 epoch: 1
-how many batch to train: 22,500
-how many batch to eval: 2,250
+how many batch to train: 10,000
 batch size: 200 
+so we need 10,000 * 200 data
+eval after how many batch in rank0?: 10, 000 // world_size // 10, so there will 10 eval.
 fp: fp32
-test: 取样 2000条
+test: 取样 1000条, to do eval
