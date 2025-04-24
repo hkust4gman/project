@@ -175,6 +175,7 @@ def main():
                 optimizer.step()
                 max_allocated_memory, max_reserved_memory, allocated_memory, reserved_memory = None, None, None, None
                 if torch.cuda.is_available():
+                    print(f"rank{config.rank}: Model device: {next(model.parameters()).device}")
                     max_allocated_memory = torch.cuda.max_memory_allocated() / 1024**3
                     max_reserved_memory = torch.cuda.max_memory_reserved() / 1024**3
                     print(f"rank{config.rank}: Max allocated memory: {max_allocated_memory} GB")
