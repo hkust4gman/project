@@ -250,7 +250,7 @@ def main():
                     f1_neg = f1_score(all_labels, all_predictions, pos_label=0, average='binary')
                     f1_pos = f1_score(all_labels, all_predictions, pos_label=1, average='binary')
                     acc = correct / total
-                    print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}, prec{precision}, recall:{recall}, f1:{f1},')
+                    print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}, prec_neg{precision_neg}, recall_neg:{recall_neg}, f1_neg:{f1_neg}, prec_pos{precision_pos}, recall_pos:{recall_pos}, f1_pos:{f1_pos}')
 
                     wandb.log({
                         "val loss": avg_loss,
