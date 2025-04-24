@@ -1,4 +1,5 @@
 import torch
+import time
 import util
 import os
 import torch.distributed as dist
@@ -139,6 +140,7 @@ def main():
         model.train()
         train_dataloader = list(train_dataloader)[:10] if config.debug else train_dataloader
         cnt = 0
+        start_time = time.time()  
         for batch in tqdm(train_dataloader, desc=f"Epoch {epoch}"):
             inputs = batch
             inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
@@ -159,12 +161,12 @@ def main():
                 if torch.cuda.is_available():
                     max_allocated_memory = torch.cuda.max_memory_allocated()
                     max_reserved_memory = torch.cuda.max_memory_reserved()
-                    print(f"rank{config.rank}: Max allocated memory: {max_allocated_memory / 1024**2} MB")
-                    print(f"rank{config.rank}: Max reserved memory: {max_reserved_memory / 1024**2} MB")
+                    print(f"rank{config.rank}: Max allocated memory: {max_allocated_memory / 1024**3} GB")
+                    print(f"rank{config.rank}: Max reserved memory: {max_reserved_memory / 1024**3} GB")
                     allocated_memory = torch.cuda.memory_allocated()
                     reserved_memory = torch.cuda.memory_reserved()
-                    print(f"rank{config.rank}: Allocated memory: {allocated_memory / 1024**2} MB")
-                    print(f"rank{config.rank}: Reserved memory: {reserved_memory / 1024**2} MB")
+                    print(f"rank{config.rank}: allocated memory: {allocated_memory / 1024**3} GB")
+                    print(f"rank{config.rank}: Reserved memory: {reserved_memory / 1024**3} GB")
                 wandb.log({
                     'batch cnt': cnt,
                     "train loss": loss,
@@ -177,6 +179,9 @@ def main():
                 print(f'Error occurred: {e}')
             cnt = cnt + 1
         
+        end_time = time.time() 
+        duration = end_time - start_time 
+        print(f"epoch{epoch}: finished in {duration / 60**2}h.", duration)
         # validation
         dist.barrier() 
         dist.reduce(loss, dst=0)
@@ -211,6 +216,7 @@ def main():
                 "train avg loss": val_avg_loss,
                 "acc": acc,
                 "epoch": epoch,
+                "duration": duration
             })
             checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
             torch.save({'model':model.module.state_dict(), 'optimizer':optimizer.state_dict()}, checkpoint_filename)
