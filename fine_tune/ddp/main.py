@@ -45,6 +45,7 @@ class Config:
             self.epoch = 2
             self.num_limit = 100
             self.eval_interval = self.num_limit // 10
+            self.eval_num_limit = 10
 
     def _get_device_name(self, device, rank):
         return f"{device}:{rank}"
