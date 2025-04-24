@@ -9,3 +9,4 @@ fine_tune/ddp/bert_model/
 fine_tune/ddp/wandb/
 fine_tune/ddp/checkpoint.pth
 checkpoint*
+fine_tune/ddp/amazone_dataset

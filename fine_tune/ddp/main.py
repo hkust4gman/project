@@ -24,7 +24,11 @@ class Config:
         self.world_size = dist.get_world_size()
         self.bert = 'bert-large-uncased'
         self.bert_save_path = self._get_bert_save_path(self.bert)
-        self.dataset_save_path = self._get_dataset_save_path(self.bert)
+        self.amazon = True
+        if self.amazon:
+            self.dataset_save_path = "amazone_dataset"
+        else:
+            self.dataset_save_path = self._get_dataset_save_path(self.bert)
         self.checkpoint ='none' # None if you don't need it.
         self.batch_size = 64 
         self.epoch = 4 #TODO: change this
