@@ -30,7 +30,7 @@ class Config:
         else:
             self.dataset_save_path = self._get_dataset_save_path(self.bert)
         self.checkpoint ='none' # None if you don't need it.
-        self.batch_size = 64 
+        self.batch_size = 256 
         self.epoch = 4 #TODO: change this
         self.padding_max_length = 512
         self.multi_node = False
