@@ -243,25 +243,28 @@ def main():
                             total += inputs['labels'].size(0)
 
                     val_avg_loss = val_loss / len(val_dataloader)
-                    precision = precision_score(all_labels, all_predictions, average=None)
-                    recall = recall_score(all_labels, all_predictions, average=None)
-                    f1 = f1_score(all_labels, all_predictions, average=None)
+                    precision_neg = precision_score(all_labels, all_predictions, pos_label=0, average='binary')
+                    precision_pos = precision_score(all_labels, all_predictions, pos_label=1, average='binary')
+                    recall_neg = recall_score(all_labels, all_predictions, pos_label=0, average='binary')
+                    recall_pos = recall_score(all_labels, all_predictions, pos_label=1, average='binary')
+                    f1_neg = f1_score(all_labels, all_predictions, pos_label=0, average='binary')
+                    f1_pos = f1_score(all_labels, all_predictions, pos_label=1, average='binary')
                     acc = correct / total
                     print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}, prec{precision}, recall:{recall}, f1:{f1},')
 
-                    for i in len(precision):
-                        wandb.log({
-                            f"precision[{i}]:{precision[i]}"
-                            f"recall[{i}]:{recall[i]}"
-                            f"f1[{i}]:{f1[i]}"
-                        })
                     wandb.log({
                         "val loss": avg_loss,
                         "train avg loss": val_avg_loss,
                         "acc": acc,
                         "eval index": ((i + 1) // eval_interval),
                         "epoch": epoch,
-                        "duration": duration
+                        "duration": duration,
+                        "precision0": precision_neg,
+                        "precision1": precision_pos,
+                        "recall0": recall_neg,
+                        "recall1": recall_pos,
+                        "f1_0": f1_neg,
+                        "f1_1": f1_pos
                     })
                     checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
                     print(f'checkpoint saved as {checkpoint_filename}.')
