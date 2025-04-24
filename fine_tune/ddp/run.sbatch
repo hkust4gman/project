@@ -31,4 +31,4 @@ echo "MASTER_ADDR="$MASTER_ADDR
 source ~/.bashrc
 
 cd $HOME//5003/project/fine_tune/ddp
-torchrun --nproc_per_node=2 main.py
+torchrun --nproc_per_node=2 rdzv_endpoint=localhost:29501 main.py
