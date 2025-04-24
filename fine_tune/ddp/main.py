@@ -10,6 +10,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
+from sklearn.metrics import precision_score, recall_score, f1_score
 import wandb
 
 
@@ -207,6 +208,8 @@ def main():
                     val_loss = 0
                     correct = 0
                     total =0
+                    all_predictions = []
+                    all_labels = []
                     with torch.no_grad():
                         for j, batch in enumerate(val_dataloader):
                             inputs = batch
@@ -218,17 +221,26 @@ def main():
 
                             #acc
                             predictions = torch.argmax(outputs.logits, dim=-1)
+                            all_predictions.extend(predictions.cpu().numpy())
+                            all_labels.extend(inputs['labels'].cpu().numpy())
+
                             correct += (predictions == inputs['labels']).sum().item()
                             total += inputs['labels'].size(0)
 
                     val_avg_loss = val_loss / len(val_dataloader)
+                    precision = precision_score(all_labels, all_predictions, average='weighted')
+                    recall = recall_score(all_labels, all_predictions, average='weighted')
+                    f1 = f1_score(all_labels, all_predictions, average='weighted')
                     acc = correct / total
-                    print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}')
+                    print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}, prec{precision:.4f}, recall:{recall:.4f}, f1:{f1:.4f},')
 
                     wandb.log({
                         "val loss": avg_loss,
                         "train avg loss": val_avg_loss,
                         "acc": acc,
+                        "prec": precision,
+                        "recall": recall,
+                        "f1": f1,
                         "eval index": ((i + 1) // eval_interval),
                         "epoch": epoch,
                         "duration": duration
