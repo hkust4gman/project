@@ -38,6 +38,7 @@ class Config:
         self.device_name = self._get_device_name(self.device, self.rank)
         self.num_limit = 22500 
         self.eval_interval = self.num_limit // 10
+        self.val_num_limit = 1000
         self.debug = False 
         if self.debug:
             self.batch_size = 10
@@ -150,6 +151,7 @@ def main():
         start_time = time.time()  
         num_limit = config.num_limit 
         eval_interval = config.eval_interval 
+        val_num_limit = config.val_num_limit
         for i, batch in enumerate(train_dataloader):
             if i >= num_limit:
                 break
@@ -203,7 +205,9 @@ def main():
                     correct = 0
                     total =0
                     with torch.no_grad():
-                        for batch in tqdm(val_dataloader, desc=f"Epoch {epoch}"):
+                        for j, batch in enumerate(val_dataloader):
+                            if j >= val_num_limit:
+                                break
                             inputs = batch
                             inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
                             
