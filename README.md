@@ -27,3 +27,11 @@ Please save some statistic data about your **training**, **data cleaning** etc, 
 - label: 3, 4, 5 for positive and 1, 2 for negative. (so here li should process dataset to a 0 1 label)
 - use bert large uncased!
 - time: 23 code finished, 26 finish experiment, 27 ppt, 28 report
+
+
+# Param
+learning rate: 1e-5
+epoch: 1
+dataset size: 1/4
+batch size: 200 
+fp: fp32
