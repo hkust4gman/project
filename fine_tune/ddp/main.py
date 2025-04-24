@@ -5,7 +5,7 @@ import os
 import torch.distributed as dist
 from transformers import BertTokenizer, BertForSequenceClassification
 from torch.optim import AdamW
-from torch.utils.data import DataLoader 
+from torch.utils.data import DataLoader, Subset
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 from datasets import load_dataset, load_from_disk
@@ -135,9 +135,13 @@ def main():
         dataset.save_to_disk(config.dataset_save_path)
         #print(f"rank{config.rank}: dataset column names: {dataset.column_names}")
 
-    sampler = DistributedSampler(dataset['train'])
-    train_dataloader = DataLoader(dataset['train'], batch_size=config.batch_size, sampler=sampler) # more options can be used
-    val_dataloader = DataLoader(dataset['test'], batch_size=config.batch_size)
+    train_dataset = dataset['train']
+    train_dataset = Subset(train_dataset, range(config.num_limit))
+    sampler = DistributedSampler(train_dataset)
+    train_dataloader = DataLoader(train_dataset, batch_size=config.batch_size, sampler=sampler) # more options can be used
+    val_dataset = dataset['test']
+    val_dataset = Subset(val_dataset, range(config.val_num_limit))
+    val_dataloader = DataLoader(val_dataset, batch_size=config.batch_size)
    # for batch in train_dataloader:
    #     print(f'rank{config.rank}:')
    #     for k, v in batch.items():
@@ -150,12 +154,8 @@ def main():
         sampler.set_epoch(epoch)
         model.train()
         start_time = time.time()  
-        num_limit = config.num_limit 
         eval_interval = config.eval_interval 
-        val_num_limit = config.val_num_limit
         for i, batch in enumerate(train_dataloader):
-            if i >= num_limit:
-                break
             inputs = batch
             inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
 
@@ -207,8 +207,6 @@ def main():
                     total =0
                     with torch.no_grad():
                         for j, batch in enumerate(val_dataloader):
-                            if j >= val_num_limit:
-                                break
                             inputs = batch
                             inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
                             
