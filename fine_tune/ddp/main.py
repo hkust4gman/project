@@ -11,6 +11,7 @@ from torch.utils.data.distributed import DistributedSampler
 from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
 from sklearn.metrics import precision_score, recall_score, f1_score
+import math
 import wandb
 
 
@@ -41,7 +42,7 @@ class Config:
         self.device_name = self._get_device_name(self.device, self.rank)
         batch_count = 10000
         self.num_limit = batch_count * self.batch_size
-        self.eval_interval_per_x_batch = batch_count // self.world_size // 10
+        self.eval_interval_per_x_batch = math.ceil(batch_count / self.world_size / 10)
         self.val_num_limit = 1000
         self.debug = False 
         if self.debug:
