@@ -113,6 +113,7 @@ def main():
     dataset = None 
     try:
         dataset = load_from_disk(config.dataset_save_path)
+        dataset.set_format(type='torch')
         dataset = dataset.rename_column('review/score', 'labels')
     except:
         print(f"rank{config.rank}: loading not tokenized dataset.")
