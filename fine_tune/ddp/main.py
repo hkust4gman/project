@@ -36,15 +36,17 @@ class Config:
         self.multi_node = False
         self.lr = 1e-5
         self.device_name = self._get_device_name(self.device, self.rank)
-        self.num_limit = 22500 
-        self.eval_interval = self.num_limit // 10
+        batch_count = 22500
+        self.num_limit = batch_count* self.batch_size
+        self.eval_interval_per_x_batch = batch_count // 10
         self.val_num_limit = 1000
         self.debug = False 
         if self.debug:
             self.batch_size = 10
             self.epoch = 2
-            self.num_limit = 100
-            self.eval_interval = self.num_limit // 10
+            batch_count = 100 
+            self.num_limit = batch_count* self.batch_size
+            self.eval_interval_per_x_batch = batch_count // 10
             self.val_num_limit = 10
 
     def _get_device_name(self, device, rank):
@@ -154,7 +156,7 @@ def main():
         sampler.set_epoch(epoch)
         model.train()
         start_time = time.time()  
-        eval_interval = config.eval_interval 
+        eval_interval = config.eval_interval_per_x_batch
         for i, batch in enumerate(train_dataloader):
             inputs = batch
             inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
