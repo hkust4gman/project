@@ -261,6 +261,7 @@ def main():
                         "duration": duration
                     })
                     checkpoint_filename = util.generate_filename_with_timestamp(f'checkpoint_{config.bert}', 'pth')
+                    print(f'checkpoint saved as {checkpoint_filename}.')
                     torch.save({'model':model.module.state_dict(), 'optimizer':optimizer.state_dict()}, checkpoint_filename)
         
         dist.barrier() 
