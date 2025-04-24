@@ -165,6 +165,19 @@ def main():
 
             print(f"rank{config.rank}: getting outputs")
             try:
+                if torch.cuda.is_available():
+                    current_device = torch.cuda.current_device()
+                    print(f"rank{config.rank}: Current device: {current_device}")
+                    torch.cuda.synchronize(current_device)
+                    pre_forward_allocated = torch.cuda.memory_allocated(current_device) / 1024**3
+                    pre_forward_reserved = torch.cuda.memory_reserved(current_device) / 1024**3
+                    print(f"rank{config.rank}: pre_forward_allocated: {pre_forward_allocated} GB")
+                    print(f"rank{config.rank}: pre_forward_reserved: {pre_forward_reserved} GB")
+                    wandb.log({
+                        "pre_forward_allocated": pre_forward_allocated,
+                        "pre_forward_reserved": pre_forward_reserved
+                    })
+    
                 outputs = model(**inputs)
                 print(f"rank{config.rank}: getting loss")
                 loss = outputs.loss
@@ -173,24 +186,22 @@ def main():
                 loss.backward()
                 print(f"rank{config.rank}: backward")
                 optimizer.step()
-                max_allocated_memory, max_reserved_memory, allocated_memory, reserved_memory = None, None, None, None
                 if torch.cuda.is_available():
-                    print(f"rank{config.rank}: Model device: {next(model.parameters()).device}")
-                    max_allocated_memory = torch.cuda.max_memory_allocated() / 1024**3
-                    max_reserved_memory = torch.cuda.max_memory_reserved() / 1024**3
-                    print(f"rank{config.rank}: Max allocated memory: {max_allocated_memory} GB")
-                    print(f"rank{config.rank}: Max reserved memory: {max_reserved_memory} GB")
-                    allocated_memory = torch.cuda.memory_allocated() / 1024**3
-                    reserved_memory = torch.cuda.memory_reserved() / 1024**3
-                    print(f"rank{config.rank}: allocated memory: {allocated_memory} GB")
-                    print(f"rank{config.rank}: Reserved memory: {reserved_memory} GB")
+                    torch.cuda.synchronize(current_device)
+                    post_backward_allocated = torch.cuda.memory_allocated(current_device) / 1024**3
+                    post_backward_reserved = torch.cuda.memory_reserved(current_device) / 1024**3
+                    max_allocated = torch.cuda.max_memory_allocated(current_device) / 1024**3
+                    print(f"rank{config.rank}: post_backward_allocated: {post_backward_allocated} GB")
+                    print(f"rank{config.rank}: post_backward_reserved: {post_backward_reserved} GB")
+                    print(f"rank{config.rank}: max_allocated: {max_allocated} GB")
+                    wandb.log({
+                        "post_backward_allocated": post_backward_allocated,
+                        "post_backward_reserved": post_backward_reserved,
+                        "max_allocated": max_allocated
+                    })
                 wandb.log({
                     'batch cnt': i,
                     "train loss": loss,
-                    "alloc cuda memo": allocated_memory,
-                    "reserved cuda memo": reserved_memory,
-                    "max_alloc cuda memo": max_allocated_memory,
-                    "max_reserved cuda memo": max_reserved_memory
                 })
             except Exception as e:
                 print(f'Error occurred: {e}')
