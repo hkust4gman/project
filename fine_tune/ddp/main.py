@@ -249,13 +249,16 @@ def main():
                     acc = correct / total
                     print(f'rank{config.rank}:train_loss:{avg_loss,}, val_loss:{val_avg_loss}, acc:{acc:.4f}, prec{precision}, recall:{recall}, f1:{f1},')
 
+                    for i in len(precision):
+                        wandb.log({
+                            f"precision[{i}]:{precision[i]}"
+                            f"recall[{i}]:{recall[i]}"
+                            f"f1[{i}]:{f1[i]}"
+                        })
                     wandb.log({
                         "val loss": avg_loss,
                         "train avg loss": val_avg_loss,
                         "acc": acc,
-                        "precisions": precision,
-                        "recalls": recall,
-                        "f1s": f1,
                         "eval index": ((i + 1) // eval_interval),
                         "epoch": epoch,
                         "duration": duration
