@@ -20,7 +20,7 @@
 #SBATCH -o logs/out%j.log
 #SBATCH -e logs/err%j.log
 
-export MASTER_PORT=29500
+export MASTER_PORT=12345
 export WORLD_SIZE=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
 echo "WORLD_SIZE="$WORLD_SIZE
 
@@ -31,4 +31,4 @@ echo "MASTER_ADDR="$MASTER_ADDR
 source ~/.bashrc
 
 cd $HOME//5003/project/fine_tune/ddp
-torchrun --nproc_per_node=2 rdzv_endpoint=localhost:29501 main.py
+torchrun --nproc_per_node=2 --rdzv_endpoint=localhost:12345 main.py

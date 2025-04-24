@@ -113,6 +113,7 @@ def main():
     dataset = None 
     try:
         dataset = load_from_disk(config.dataset_save_path)
+
     except:
         print(f"rank{config.rank}: loading not tokenized dataset.")
         local_path = './imdb_dataset'
@@ -147,7 +148,10 @@ def main():
         start_time = time.time()  
         for batch in tqdm(train_dataloader, desc=f"Epoch {epoch}"):
             inputs = batch
-            inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
+            if config.amazon == True:
+                inputs = {k: torch.tensor(v).to(config.device_name) for k, v in inputs.items()}
+            else:
+                inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
 
 
             print(f"rank{config.rank}: getting outputs")
@@ -200,7 +204,10 @@ def main():
                 val_dataloader = list(val_dataloader)[:10] if config.debug else val_dataloader
                 for batch in tqdm(val_dataloader, desc=f"Epoch {epoch}"):
                     inputs = batch
-                    inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
+                    if config.amazon == True:
+                        inputs = {k: torch.tensor(v).to(config.device_name) for k, v in inputs.items()}
+                    else:
+                        inputs = {k: v.to(config.device_name) for k, v in inputs.items()}
                     
                     outputs = raw_model(**inputs)
                     loss = outputs.loss
