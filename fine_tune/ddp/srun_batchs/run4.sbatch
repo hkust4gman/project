@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J ddp                                      #Slurm job name
+#SBATCH -J ddp4                                      #Slurm job name
 
 #SBATCH -t 2:00:00                                #Maximum runtime of 48 hours
 
