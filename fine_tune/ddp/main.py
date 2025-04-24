@@ -165,14 +165,14 @@ def main():
                 optimizer.step()
                 max_allocated_memory, max_reserved_memory, allocated_memory, reserved_memory = None, None, None, None
                 if torch.cuda.is_available():
-                    max_allocated_memory = torch.cuda.max_memory_allocated()
-                    max_reserved_memory = torch.cuda.max_memory_reserved()
-                    print(f"rank{config.rank}: Max allocated memory: {max_allocated_memory / 1024**3} GB")
-                    print(f"rank{config.rank}: Max reserved memory: {max_reserved_memory / 1024**3} GB")
-                    allocated_memory = torch.cuda.memory_allocated()
-                    reserved_memory = torch.cuda.memory_reserved()
-                    print(f"rank{config.rank}: allocated memory: {allocated_memory / 1024**3} GB")
-                    print(f"rank{config.rank}: Reserved memory: {reserved_memory / 1024**3} GB")
+                    max_allocated_memory = torch.cuda.max_memory_allocated() / 1024**3
+                    max_reserved_memory = torch.cuda.max_memory_reserved() / 1024**3
+                    print(f"rank{config.rank}: Max allocated memory: {max_allocated_memory} GB")
+                    print(f"rank{config.rank}: Max reserved memory: {max_reserved_memory} GB")
+                    allocated_memory = torch.cuda.memory_allocated() / 1024**3
+                    reserved_memory = torch.cuda.memory_reserved() / 1024**3
+                    print(f"rank{config.rank}: allocated memory: {allocated_memory} GB")
+                    print(f"rank{config.rank}: Reserved memory: {reserved_memory} GB")
                 wandb.log({
                     'batch cnt': cnt,
                     "train loss": loss,
