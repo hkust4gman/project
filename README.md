@@ -38,3 +38,4 @@ so we need 4,000 * 200 data
 eval after how many batch in rank0?: math.ceil(batch_count / world_size / 10)
 fp: fp32
 test: 取样 1000条, to do eval
+eval metric: acc, precision(neg and pos), recall(neg and pos), f1(neg and pos)
