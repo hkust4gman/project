@@ -40,7 +40,7 @@ class Config:
         self.multi_node = False
         self.lr = 1e-5
         self.device_name = self._get_device_name(self.device, self.rank)
-        batch_count = 10000
+        batch_count = 4000
         self.num_limit = batch_count * self.batch_size
         self.eval_interval_per_x_batch = math.ceil(batch_count / self.world_size / 10)
         self.val_num_limit = 1000
