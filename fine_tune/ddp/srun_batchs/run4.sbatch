@@ -4,7 +4,7 @@
 
 #SBATCH -t 2:00:00                                #Maximum runtime of 48 hours
 
-#SBATCH --mail-user=srongaa@ust.hk #Update your email address
+#SBATCH --mail-user=srongaa@connect.ust.hk #Update your email address
 #SBATCH --mail-type=begin
 #SBATCH --mail-type=end
 
@@ -12,8 +12,6 @@
 
 
 #SBATCH --nodes=1                # node count
-#SBATCH --ntasks-per-node=4      # total number of tasks per node
-#SBATCH --cpus-per-task=8        # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --gpus=4                 # number of GPUs per node(only valid under large/normal partition)
 #SBATCH --account=mscbdt2024
 
