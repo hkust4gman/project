@@ -8,6 +8,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader, Subset
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
+from torch.amp import GradScaler, autocast
 from datasets import load_dataset, load_from_disk
 from tqdm import tqdm
 from sklearn.metrics import precision_score, recall_score, f1_score
@@ -29,6 +30,7 @@ class Config:
         self.bert = 'bert-large-uncased'
         self.bert_save_path = self._get_bert_save_path(self.bert)
         self.amazon = True
+        self.fp16 = False
         if self.amazon:
             self.dataset_save_path = "amazone_dataset"
         else:
@@ -74,6 +76,14 @@ class Config:
         elif device == 'cuda':
             backend = 'nccl'
         return backend
+    
+    def fp16(self):
+        self.fp16 = True
+        return self
+
+    def debug(self):
+        self.debug = True
+        return self
 
     def print_variables(self):
         for var_name, var_value in self.__dict__.items():
@@ -89,6 +99,7 @@ def main():
     # set this config first please
     device = 'cuda'
     config = Config(device)
+    config = config.fp16().debug()
     config.print_variables()
 
     project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}_{config.rank}", '')
@@ -119,6 +130,7 @@ def main():
     if checkpoint:
         optimizer.load_state_dict(checkpoint['optimizer'])
     
+    scaler = GradScaler()
 
     print(f"rank{config.rank}: loading dataset.")
     dataset = None 
@@ -181,14 +193,26 @@ def main():
                         "pre_forward_reserved": pre_forward_reserved
                     })
     
-                outputs = model(**inputs)
-                print(f"rank{config.rank}: getting loss")
-                loss = outputs.loss
-                print(f"rank{config.rank}: loss:{loss}")
-                optimizer.zero_grad()
-                loss.backward()
-                print(f"rank{config.rank}: backward")
-                optimizer.step()
+                if config.fp16:
+                    with autocast():
+                        outputs = model(**inputs)
+                        print(f"rank{config.rank}: getting loss")
+                        loss = outputs.loss
+                        print(f"rank{config.rank}: loss:{loss}")
+                    optimizer.zero_grad()
+                    scaler.scale(loss).backward()
+                    print(f"rank{config.rank}: backward")
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    outputs = model(**inputs)
+                    print(f"rank{config.rank}: getting loss")
+                    loss = outputs.loss
+                    print(f"rank{config.rank}: loss:{loss}")
+                    optimizer.zero_grad()
+                    loss.backward()
+                    print(f"rank{config.rank}: backward")
+                    optimizer.step()
                 if torch.cuda.is_available():
                     torch.cuda.synchronize(current_device)
                     post_backward_allocated = torch.cuda.memory_allocated(current_device) / 1024**3
