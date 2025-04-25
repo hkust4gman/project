@@ -77,11 +77,11 @@ class Config:
             backend = 'nccl'
         return backend
     
-    def fp16(self):
+    def set_fp16(self):
         self.fp16 = True
         return self
 
-    def debug(self):
+    def set_debug(self):
         self.debug = True
         return self
 
@@ -99,7 +99,7 @@ def main():
     # set this config first please
     device = 'cuda'
     config = Config(device)
-    config = config.fp16().debug()
+    config = config.set_fp16().set_debug()
     config.print_variables()
 
     project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}_{config.rank}", '')
