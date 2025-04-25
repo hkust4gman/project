@@ -193,8 +193,9 @@ def main():
                         "pre_forward_reserved": pre_forward_reserved
                     })
     
+                loss = None
                 if config.fp16:
-                    with autocast():
+                    with autocast(config.device):
                         outputs = model(**inputs)
                         print(f"rank{config.rank}: getting loss")
                         loss = outputs.loss
