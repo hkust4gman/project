@@ -99,7 +99,7 @@ def main():
     # set this config first please
     device = 'cuda'
     config = Config(device)
-    config = config.set_fp16().set_debug()
+    config = config.set_fp16()
     config.print_variables()
 
     project_name = util.generate_filename_with_timestamp(f"{config.bert}_{config.batch_size}_{config.device}_{config.lr}_{config.world_size}_{config.rank}", '')
