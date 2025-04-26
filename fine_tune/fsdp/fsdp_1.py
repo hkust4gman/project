@@ -26,11 +26,9 @@ from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import precision_recall_fscore_support, accuracy_score
 
 def setup_wandb(run_name=None):
-    # 从SLURM环境变量获取作业ID
-    job_id = os.environ.get('SLURM_JOB_ID', 'local')
     wandb.init(
         project="debugging",                                                    
-        name=f"fsdp-{job_id}" if run_name is None else run_name
+        name=f"fsdp" if run_name is None else run_name
     )
 
 def setup_fsdp_config():
@@ -40,7 +38,6 @@ def setup_fsdp_config():
     )
 
 def cleanup():
-    # 清理分布式环境
     dist.destroy_process_group()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -59,9 +56,11 @@ def compute_metrics(pred):
     labels = pred.label_ids
     preds = pred.predictions.argmax(-1)
     precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average=None)
+    #TODO ? where is your negative precision? f1 recall etc.
+    # precision_neg = precision_score(all_labels, all_predictions, pos_label=0, average='binary')
+    #do things like this
     acc = accuracy_score(labels, preds)
     
-    # Create metrics dictionary
     metrics = {
         'accuracy': acc,
         'f1_0': f1[0],
@@ -89,7 +88,7 @@ def compute_metrics(pred):
 def main():
     debug = True
     torch.cuda.empty_cache()
-    device_name, rank, world_size = setup_distributed()
+    _, rank, _ = setup_distributed()
 
     if rank == 0:
         setup_wandb()
@@ -121,18 +120,13 @@ def main():
 
     print("Initialize datasets successfully!")
 
-    # 修改训练参数
     training_args = TrainingArguments(
         output_dir=f"./bert_finetuned",
         logging_dir=f"./logs",
 
         learning_rate=1e-5,
-        weight_decay=0.01,
-        warmup_steps=100,
 
-        per_device_train_batch_size=50,
-        dataloader_drop_last=True,
-        gradient_accumulation_steps=4,
+        per_device_train_batch_size=batch_size,
         num_train_epochs=1,
         
 
@@ -158,7 +152,9 @@ def main():
         local_rank=rank,
         
         # wandb配置
-        report_to="wandb" if rank == 0 else "none",
+        #TODO: you don't need to see any info of your servant gpu?
+        #report_to="wandb" if rank == 0 else "none",
+        report_to="wandb",
         logging_steps=50,
         logging_first_step=True,
     )
