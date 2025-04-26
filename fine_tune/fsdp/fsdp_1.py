@@ -32,10 +32,10 @@ def setup_wandb(run_name=None):
     )
 
 def setup_fsdp_config():
-    return FullyShardedDataParallelPlugin(
-        sharding_strategy=ShardingStrategy.FULL_SHARD,
-        cpu_offload=CPUOffload(offload_params=False),
-    )
+    return {
+        "sharding_strategy": "FULL_SHARD",
+        "cpu_offload": False,
+    }
 
 def cleanup():
     dist.destroy_process_group()
@@ -144,7 +144,7 @@ def main():
         greater_is_better=False,  # For loss, lower is better
         
         # FSDP配置
-        fsdp = "full_shard auto_wrap",
+        fsdp = ["full_shard", "auto_wrap"],
         fsdp_config=setup_fsdp_config(),
         fsdp_transformer_layer_cls_to_wrap="BertLayer",
         
