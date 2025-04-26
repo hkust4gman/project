@@ -33,8 +33,13 @@ def setup_wandb(run_name=None):
 
 def setup_fsdp_config():
     return {
-        "sharding_strategy": "FULL_SHARD",
-        "cpu_offload": False,
+        "min_num_params": 1e5,  # Add this parameter
+        "fsdp_sharding_strategy": 1,  # 1 corresponds to FULL_SHARD
+        "fsdp_offload_params": False,
+        "fsdp_auto_wrap_policy": "size_based",
+        "fsdp_backward_prefetch": "BACKWARD_POST",
+        "fsdp_state_dict_type": "FULL_STATE_DICT",
+        "fsdp_transformer_layer_cls_to_wrap": "BertLayer",
     }
 
 def cleanup():
