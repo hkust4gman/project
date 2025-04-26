@@ -144,7 +144,7 @@ def main():
         greater_is_better=False,  # For loss, lower is better
         
         # FSDP配置
-        fsdp = "full_shard wrap_auto",
+        fsdp = "full_shard auto_wrap",
         fsdp_config=setup_fsdp_config(),
         fsdp_transformer_layer_cls_to_wrap="BertLayer",
         
