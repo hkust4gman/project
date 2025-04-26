@@ -33,13 +33,12 @@ def setup_wandb(run_name=None):
 
 def setup_fsdp_config():
     return {
-        "min_num_params": 1e5,  # Add this parameter
-        "fsdp_sharding_strategy": 1,  # 1 corresponds to FULL_SHARD
+        "fsdp_sharding_strategy": ShardingStrategy.FULL_SHARD,
         "fsdp_offload_params": False,
-        "fsdp_auto_wrap_policy": "size_based",
+        "fsdp_auto_wrap_policy": "transformer",  # Changed from size_based
         "fsdp_backward_prefetch": "BACKWARD_POST",
         "fsdp_state_dict_type": "FULL_STATE_DICT",
-        "fsdp_transformer_layer_cls_to_wrap": "BertLayer",
+        "transformer_layer_cls_to_wrap": "BertLayer",  # Using this instead of min_num_params
     }
 
 def cleanup():
@@ -151,7 +150,6 @@ def main():
         # FSDP配置
         fsdp = ["full_shard", "auto_wrap"],
         fsdp_config=setup_fsdp_config(),
-        fsdp_transformer_layer_cls_to_wrap="BertLayer",
         
         # 分布式训练配置
         local_rank=rank,
