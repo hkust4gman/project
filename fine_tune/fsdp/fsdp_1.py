@@ -34,11 +34,8 @@ def setup_wandb(run_name=None):
 def setup_fsdp_config():
     return {
         "fsdp_sharding_strategy": ShardingStrategy.FULL_SHARD,
-        "fsdp_offload_params": False,
-        "fsdp_auto_wrap_policy": "transformer",  # Changed from size_based
-        "fsdp_backward_prefetch": "BACKWARD_POST",
-        "fsdp_state_dict_type": "FULL_STATE_DICT",
-        "transformer_layer_cls_to_wrap": "BertLayer",  # Using this instead of min_num_params
+        "fsdp_auto_wrap_policy": "transformer",
+        "transformer_layer_cls_to_wrap": "BertLayer",
     }
 
 def cleanup():
@@ -129,11 +126,9 @@ def main():
         logging_dir=f"./logs",
 
         learning_rate=1e-5,
-
         per_device_train_batch_size=batch_size,
         num_train_epochs=1,
         
-
         # Evaluation settings
         eval_strategy="steps",
         eval_steps= 1 if debug else 50,
@@ -142,24 +137,12 @@ def main():
         
         # fp16=True,
 
-        # Metrics configuration
-        metric_for_best_model="eval_loss",
-        load_best_model_at_end=True,
-        greater_is_better=False,  # For loss, lower is better
-        
-        # FSDP配置
         fsdp = ["full_shard", "auto_wrap"],
         fsdp_config=setup_fsdp_config(),
-        
-        # 分布式训练配置
         local_rank=rank,
+        save_strategy="no",              
         
-        # wandb配置
-        #TODO: you don't need to see any info of your servant gpu?
-        #report_to="wandb" if rank == 0 else "none",
-        report_to="wandb",
-        logging_steps=50,
-        logging_first_step=True,
+        report_to="wandb" if rank == 0 else "none",
     )
 
     trainer = Trainer(
