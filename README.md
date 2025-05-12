@@ -8,3 +8,6 @@ check folder: preprocessing.
 
 # Fine-tuning
 check folder: fine_tune
+
+# github
+github url: https://github.com/hkust4gman
